@@ -41,7 +41,7 @@ var receiptLeadingZeroes = Migration{
 
 			blockHashBytes := k[len(k)-32:]
 			blockNum64Bytes := k[:len(k)-32]
-			blockNum32Bytes := k[:4]
+			blockNum32Bytes := k[4:8]
 			blockNum := binary.BigEndian.Uint64(blockNum64Bytes)
 			canonicalHash := rawdb.ReadCanonicalHash(db, blockNum)
 			if !bytes.Equal(blockHashBytes, canonicalHash[:]) {
@@ -68,7 +68,7 @@ var receiptLeadingZeroes = Migration{
 				return fmt.Errorf("invalid receipt array RLP: %w, blockNum=%d", err, blockNum)
 			}
 
-			if err := receipts.Put(blockNum32Bytes, newV); err != nil {
+			if err := receipts.Append(blockNum32Bytes, newV); err != nil {
 				return err
 			}
 
