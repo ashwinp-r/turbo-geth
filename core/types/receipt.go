@@ -227,6 +227,10 @@ func (r *ReceiptForStorage) DecodeRLP(s *rlp.Stream) error {
 
 // 1st byte stores amount of leading zeroes - it's db-level detail, don't return it to user
 func leadingZeroEncode(in []byte) []byte {
+	if len(in) == 0 {
+		return in
+	}
+
 	leadingZeros := uint8(0)
 	for i := 0; i < len(in); i++ {
 		if in[i] != 0 || leadingZeros == 255 {
@@ -248,6 +252,10 @@ func leadingZeroEncode(in []byte) []byte {
 
 // 1st byte stores amount of leading zeroes - it's db-level detail, don't return it to user
 func leadingZeroDecode(in []byte) []byte {
+	if len(in) == 0 {
+		return in
+	}
+
 	if in[0] == 0 {
 		return in[1:]
 	}

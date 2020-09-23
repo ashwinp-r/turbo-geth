@@ -44,8 +44,7 @@ var receiptLeadingZeroes = Migration{
 			// Encode by new data type
 			storageReceipts := make([]*types.ReceiptForStorage, len(storageReceiptsLegacy))
 			for i, r := range storageReceiptsLegacy {
-				casted := types.ReceiptForStorage(*r)
-				storageReceipts[i] = &casted
+				storageReceipts[i] = (*types.ReceiptForStorage)(r)
 			}
 			newV, err := rlp.EncodeToBytes(storageReceipts)
 			if err != nil {
