@@ -83,6 +83,6 @@ var receiptLeadingZeroes = Migration{
 		//if err := db.(ethdb.BucketsMigrator).DropBuckets(dbutils.BlockReceiptsPrefixOld1); err != nil {
 		//	return err
 		//}
-		return nil
+		return OnLoadCommit(db, nil, true)
 	},
 }
