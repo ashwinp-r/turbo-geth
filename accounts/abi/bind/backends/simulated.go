@@ -171,7 +171,7 @@ func (b *SimulatedBackend) Commit() {
 	rawdb.WriteBlock(ctx, b.database, b.pendingBlock)
 	rawdb.WriteCanonicalHash(b.database, b.pendingBlock.Hash(), b.pendingBlock.NumberU64())
 	rawdb.WriteTxLookupEntries(b.database, b.pendingBlock)
-	rawdb.WriteReceipts(b.database, b.pendingBlock.Hash(), b.pendingBlock.NumberU64(), b.pendingReceipts)
+	rawdb.WriteReceipts(b.database, b.pendingBlock.NumberU64(), b.pendingReceipts)
 	if err := b.pendingState.CommitBlock(ctx, stateWriter); err != nil {
 		panic(fmt.Errorf("committing block %d failed: %v", b.pendingBlock.NumberU64(), err))
 	}
@@ -514,7 +514,7 @@ func (b *SimulatedBackend) EstimateGas(ctx context.Context, call ethereum.CallMs
 
 	// Determine the lowest and highest possible gas limits to binary search in between
 	var (
-		lo  uint64 = params.TxGas - 1
+		lo  = params.TxGas - 1
 		hi  uint64
 		cap uint64
 	)
@@ -834,7 +834,7 @@ func (fb *filterBackend) GetReceipts(_ context.Context, hash common.Hash) (types
 	if number == nil {
 		return nil, nil
 	}
-	return rawdb.ReadReceipts(fb.db, hash, *number, fb.b.config), nil
+	return rawdb.ReadReceipts(fb.db, *number, fb.b.config), nil
 }
 
 func (fb *filterBackend) GetLogs(_ context.Context, hash common.Hash) ([][]*types.Log, error) {
@@ -842,7 +842,7 @@ func (fb *filterBackend) GetLogs(_ context.Context, hash common.Hash) ([][]*type
 	if number == nil {
 		return nil, nil
 	}
-	receipts := rawdb.ReadReceipts(fb.db, hash, *number, fb.b.config)
+	receipts := rawdb.ReadReceipts(fb.db, *number, fb.b.config)
 	if receipts == nil {
 		return nil, nil
 	}

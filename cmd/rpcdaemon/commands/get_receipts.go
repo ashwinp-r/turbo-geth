@@ -28,7 +28,7 @@ func getReceipts(ctx context.Context, db rawdb.DatabaseReader, cfg *params.Chain
 	}
 
 	block := rawdb.ReadBlock(db, hash, *number)
-	if cached := rawdb.ReadReceipts(db, block.Hash(), block.NumberU64(), cfg); cached != nil {
+	if cached := rawdb.ReadReceipts(db, block.NumberU64(), cfg); cached != nil {
 		return cached, nil
 	}
 
@@ -353,7 +353,7 @@ func (f *Filter) checkMatches(ctx context.Context, header *types.Header, api *AP
 		// We have matching logs, check if we need to resolve full logs via the light client
 		if logs[0].TxHash == (common.Hash{}) {
 			chainConfig := getChainConfig(api.dbReader)
-			receipts := rawdb.ReadReceipts(api.dbReader, header.Hash(), header.Number.Uint64(), chainConfig)
+			receipts := rawdb.ReadReceipts(api.dbReader, header.Number.Uint64(), chainConfig)
 			unfiltered = unfiltered[:0]
 			for _, receipt := range receipts {
 				unfiltered = append(unfiltered, receipt.Logs...)

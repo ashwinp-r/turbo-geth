@@ -16,7 +16,7 @@ import (
 )
 
 var receiptLeadingZeroes = Migration{
-	Name: "receipt_leading_zeroes_1",
+	Name: "receipt_leading_zeroes_2",
 	Up: func(db ethdb.Database, datadir string, OnLoadCommit etl.LoadCommitHandler) error {
 		if exists, err := db.(ethdb.BucketsMigrator).BucketExists(dbutils.BlockReceiptsPrefixOld1); err != nil {
 			return err
@@ -41,7 +41,6 @@ var receiptLeadingZeroes = Migration{
 
 			blockHashBytes := k[len(k)-32:]
 			blockNum64Bytes := k[:len(k)-32]
-			blockNum32Bytes := k[4:8]
 			blockNum := binary.BigEndian.Uint64(blockNum64Bytes)
 			canonicalHash := rawdb.ReadCanonicalHash(db, blockNum)
 			if !bytes.Equal(blockHashBytes, canonicalHash[:]) {
@@ -68,7 +67,7 @@ var receiptLeadingZeroes = Migration{
 				return fmt.Errorf("invalid receipt array RLP: %w, blockNum=%d", err, blockNum)
 			}
 
-			if err := receipts.Append(blockNum32Bytes, newV); err != nil {
+			if err := receipts.Append(blockNum64Bytes, newV); err != nil {
 				return err
 			}
 
