@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/common/etl"
 	"github.com/ledgerwatch/turbo-geth/core/rawdb"
@@ -11,6 +12,7 @@ import (
 	"github.com/ledgerwatch/turbo-geth/ethdb"
 	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/rlp"
+	"time"
 )
 
 var receiptLeadingZeroes = Migration{
@@ -25,7 +27,18 @@ var receiptLeadingZeroes = Migration{
 		if err := db.(ethdb.BucketsMigrator).ClearBuckets(dbutils.BlockReceiptsPrefix); err != nil {
 			return err
 		}
-		extractFunc := func(k []byte, v []byte, next etl.ExtractNextFunc) error {
+
+		logEvery := time.NewTicker(30 * time.Second)
+		defer logEvery.Stop()
+
+		tx := db.(ethdb.HasTx).Tx()
+		receiptsOld := tx.Cursor(dbutils.BlockReceiptsPrefixOld1)
+		receipts := tx.Cursor(dbutils.BlockReceiptsPrefix)
+		for k, v, err := receiptsOld.First(); k != nil; k, v, err = receiptsOld.Next() {
+			if err != nil {
+				return err
+			}
+
 			blockHashBytes := k[len(k)-32:]
 			blockNum64Bytes := k[:len(k)-32]
 			blockNum32Bytes := k[:4]
@@ -55,19 +68,16 @@ var receiptLeadingZeroes = Migration{
 				return fmt.Errorf("invalid receipt array RLP: %w, blockNum=%d", err, blockNum)
 			}
 
-			return next(k, blockNum32Bytes, newV)
-		}
+			if err := receipts.Put(blockNum32Bytes, newV); err != nil {
+				return err
+			}
 
-		if err := etl.Transform(
-			db,
-			dbutils.BlockReceiptsPrefixOld1,
-			dbutils.BlockReceiptsPrefix,
-			datadir,
-			extractFunc,
-			etl.IdentityLoadFunc,
-			etl.TransformArgs{OnLoadCommit: OnLoadCommit},
-		); err != nil {
-			return err
+			select {
+			default:
+			case <-logEvery.C:
+				sz, _ := tx.BucketSize(dbutils.BlockReceiptsPrefix)
+				log.Info("Progress", "blockNum", blockNum, "bucketSize", common.StorageSize(sz))
+			}
 		}
 
 		//if err := db.(ethdb.BucketsMigrator).DropBuckets(dbutils.BlockReceiptsPrefixOld1); err != nil {
