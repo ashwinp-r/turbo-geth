@@ -141,6 +141,115 @@ func (s *KvServer) Seek(stream remote.KV_SeekServer) error {
 		default:
 		case <-txTicker.C:
 			tx.Rollback()
+			tx, err = s.kv.Begin(stream.Context(), nil, false)
+			if err != nil {
+				return err
+			}
+			if isDupsort {
+				dc := tx.CursorDupSort(bucketName)
+				k, v, err = dc.SeekBothRange(k, v)
+				if err != nil {
+					return err
+				}
+				if k == nil { // it may happen that key where we stopped disappeared after transaction reopen, then just move to next key
+					k, v, err = dc.Next()
+					if err != nil {
+						return err
+					}
+				}
+				c = dc
+			} else {
+				c = tx.Cursor(bucketName).Prefix(prefix)
+				k, v, err = c.Seek(k)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+}
+
+func (s *KvServer) Cursor(stream remote.KV_SeekServer) error {
+	in, recvErr := stream.Recv()
+	if recvErr != nil {
+		return recvErr
+	}
+	tx, err := s.kv.Begin(stream.Context(), nil, false)
+	if err != nil {
+		return err
+	}
+	rollback := func() {
+		tx.Rollback()
+	}
+	defer rollback()
+
+	bucketName, prefix := in.BucketName, in.Prefix // 'in' value will cahnge, but this params will immutable
+
+	var c ethdb.Cursor
+
+	txTicker := time.NewTicker(MaxTxTTL)
+	defer txTicker.Stop()
+
+	isDupsort := len(in.SeekValue) != 0
+	var k, v []byte
+	if !isDupsort {
+		c = tx.Cursor(bucketName).Prefix(prefix)
+	} else {
+		c = tx.CursorDupSort(bucketName)
+	}
+
+	err = stream.Send(&remote.Pair{})
+	if err != nil {
+		return err
+	}
+
+	// send all items to client, if k==nil - still send it to client and break loop
+	for {
+		in, err = stream.Recv()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+
+		switch {
+		case Next:
+			if !in.StartSreaming {
+				err = stream.Send(&remote.Pair{Key: common.CopyBytes(k), Value: common.CopyBytes(v)})
+				if err != nil {
+					return err
+				}
+				continue
+			}
+
+			for {
+				k, v, err = c.Next()
+				if err != nil {
+					return err
+				}
+				if k != nil {
+					break
+				}
+			}
+		case Seek:
+		}
+
+		// if client not requested stream then wait signal from him before send any item
+		if !in.StartSreaming {
+			in, err = stream.Recv()
+			if err != nil {
+				if err == io.EOF {
+					return nil
+				}
+				return err
+			}
+		}
+
+		select {
+		default:
+		case <-txTicker.C:
+			tx.Rollback()
 			tx, err = s.kv.Begin(context.Background(), nil, false)
 			if err != nil {
 				return err

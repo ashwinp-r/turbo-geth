@@ -60,6 +60,7 @@ var migrations = []Migration{
 	dupSortHashState,
 	dupSortPlainState,
 	dupSortIH,
+	receiptLeadingZeroes,
 }
 
 type Migration struct {
